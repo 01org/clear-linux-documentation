@@ -246,7 +246,7 @@ and is available in the database-basic |CL| bundle.
 
    .. code-block:: bash
 
-      sudo swupd bundle-add database-basic
+      sudo swupd bundle-add mariadb
 
 #. To start MariaDB after it is installed and set it to start automatically on
    boot, enter the following commands:
