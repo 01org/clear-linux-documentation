@@ -39,78 +39,62 @@ Install the DKMS kernel
 Bundles
 =======
 
-Before you install OpenZFS, install the bundles that contain the build dependencies.
+Before installing OpenZFS, install the bundles that contain the build dependencies.
 
-.. code-block:: bash
+.. code-block:: console
 
-    sudo swupd bundle-add os-core-dev devpkg-openssl devpkg-util-linux
+    sudo swupd bundle-add wget devpkg-openssl devpkg-util-linux
 
 Install
 *******
 
-Clone OpenZFS code
-==================
+Download OpenZFS release
+========================
 
+In this section, we download release 2.0.0 directly from the `OpenZFS repository` (the latest available as of the latest revision of this page).
 
-In this section, you download the source code directly from the `ZFS on Linux repository`_.
+Download release 2.0.0
 
-.. note::
+   .. code-block:: console
    
-   OpenZFS will not run from this location. We copy the source code into a DKMS directory in the following steps. 
-
-#. Create a directory. In this example, we use :file:`/opt/src/zfs`, 
-   but you can choose any workspace you like. 
-
-   .. code-block:: bash
-
-      sudo mkdir -p /tmp/zfs/ 
-
-#. Clone the repository.
-
-   .. code-block:: bash
-
-      git clone https://github.com/openzfs/zfs.git /tmp/zfs
-      sudo cp -Rv /tmp/zfs /opt/src/zfs
-
-Remember where you clone the git repository because you will need it
-when you upgrade ZFS. Do not delete the source location when you have completed this tutorial. You will need it later.
+      cd /usr/src
+      sudo wget https://github.com/openzfs/zfs/releases/download/zfs-2.0.0/zfs-2.0.0.tar.gz
+      sudo tar -xvf zfs-2.0.0.tar.gz
 
 Compile the module
 ==================
 
 We will build the module using DKMS. This will enable us to keep the module up to date as new kernels are released in the future.
 
+The ZFS distribution provides a script to build a suitable dkms.conf file.
 
-#. Check out the tagged version that you plan to use. As of the time of this
-   writing, the latest release tag is `0.8.4`:
-
-   .. code-block:: bash
-
-      cd /opt/src/zfs
-      git checkout zfs-0.8.4
-
-#. Copy the source code into `/usr/src/zfs-0.8.4`. This exposes the source
-   code to DKMS. We will build the code from the new location:
-
-   .. code-block:: bash
-
-      sudo cp -Rv /opt/src/zfs /usr/src/zfs-0.8.4
-
-#. The ZFS distribution provides a script to build a suitable dkms.conf file.
    Build dkms.conf and install it into the DKMS tree.
 
-   .. code-block:: bash
+   .. code-block:: console
 
-      cd /usr/src/zfs-0.8.4
-      sudo scripts/dkms.mkconf -n zfs -v 0.8.4 -f dkms.conf
-      sudo dkms add -m zfs -v 0.8.4
-      sudo dkms build -m zfs -v 0.8.4
-      sudo dkms install -m zfs -v 0.8.4
+      cd /usr/src/zfs-2.0.0
+      sudo scripts/dkms.mkconf -n zfs -v 2.0.0 -f dkms.conf
+      sudo dkms add -m zfs -v 2.0.0
+      sudo dkms build -m zfs -v 2.0.0
+      sudo dkms install -m zfs -v 2.0.0
+      
+Observe that this install the zfs kernel modules to: 
 
-#. Observe that this install the zfs kernel modules to: 
    :file:`/usr/lib/modules/<kernel-name>/extra/zfs`
+   
+Compile userspace tools
+=======================
 
-   In addition, this installs the zfs userspace tools to:
+Here we compile and install the zfs userspace tools (e.g., zpool, zfs, etc.).
+
+   .. code-block:: console
+   
+      cd /usr/src/zfs-2.0.0
+      sudo ./configure
+      sudo make
+      sudo make install
+
+The binaries are installed at the following directory. While not required, it's recommended to add :file:`/usr/local/sbin` to your path variable.
 
    .. code-block:: console
 
@@ -143,21 +127,14 @@ We will build the module using DKMS. This will enable us to keep the module up t
          |--ztest
          |--zstreamdump
       |--+ src/
-         |--+ zfs-0.8.4/
-         |--+ spl-0.8.4/
-
-
-#. Load the new kernel module:
-
-   .. code-block: bash
-
-      sudo modprobe zfs
+         |--+ zfs-2.0.0/
+         |--+ spl-2.0.0/
 
 
 Set up systemd
 ==============
 
-You should now have these unit files available. 
+We now have these unit files available. 
 
 .. code-block:: console
 
@@ -169,19 +146,16 @@ You should now have these unit files available.
    zfs-share.service
    zfs-volume-wait.service
   
-OpenZFS requires you to explicitly install and enable the services you want. 
-If you want to use other ZFS service units, you could create symlinks for them, similar to the example below.
+  
+OpenZFS requires that we  explicitly install and enable the services desired. 
 
-To use ZFS automatic zpool import and filesystem mount services, link the systemd.unit files into :file:`/etc` and enable them.
+To use ZFS automatic zpool import and filesystem mount services, enable them.
 
-.. code-block:: bash
-
-   sudo ln -s ./etc/systemd/system/zfs-import-cache.service /etc/systemd/system/
-   sudo ln -s ./etc/systemd/system/zfs-mount.service /etc/systemd/system/
+.. code-block:: console
 
    sudo systemctl enable zfs-import-cache
    sudo systemctl enable zfs-import.target
-
+   sudo systemctl enable zfs-import-scan
    sudo systemctl enable zfs-mount
    sudo systemctl enable zfs.target
 
@@ -191,55 +165,56 @@ Load the kernel module at boot
 
 OpenZFS kernel modules must be loaded before any OpenZFS filesystems are mounted. For convenience, load the kernel modules at boot.
 
-#. Systemd uses the `/etc/modules-load.d/` directory to load out-of-tree
-   kernel modules. Make sure that the directory exists:
+Systemd uses the `/etc/modules-load.d/` directory to load out-of-tree kernel modules. Make sure that the directory exists:
 
    .. code-block:: bash
 
       sudo mkdir -p /etc/modules-load.d
 
-#. Create the configuration file:
+Create the configuration file:
 
    .. code-block:: bash
 
       echo "zfs" | sudo tee /etc/modules-load.d/01-zfs.conf
 
-#. Reboot your system. zfs.ko should be loaded automatically.
+Reboot your system. zfs.ko should be loaded automatically (the module should appear in the outout of command :file:`lsmod`).
 
 .. CAUTION::
 
-   When the |CL| kernel is upgraded, DKMS will attempt to rebuild your OpenZFS module for the new kernel. 
+   When the |CL| kernel is upgraded, DKMS will attempt to rebuild the OpenZFS module for the new kernel. 
 
    - DKMS may not have rebuilt the module
    - DKMS may not have auto-installed the module
    - The new kernel might introduce breaking changes that prevent zfs
      from compiling
 
-To fix this situation, you may have to recompile zfs.ko with the new kernel code. OpenZFS *might* not compile at all with the new kernel.
+To fix this situation, recompile zfs.ko with the new kernel code. OpenZFS *might* not compile at all with the new kernel.
 
 .. CAUTION::
    
-   **Be sure you don't put anything on an OpenZFS pool that you would need
-   in order to rebuild kernel modules.** You must ensure the compatibility of OpenZFS with new Linux kernels when they are released.
+   **Be sure not to put anything on an OpenZFS pool that will be needed to rebuild kernel modules.** Ensure compatibility of OpenZFS with new Linux kernels when released.
 
 Troubleshooting
 ===============
 
 If you suspect an issue with DKMS rebuilding your module, you can check two places for information. The dkms-new-kernel service will show status that may help in troubleshooting:
 
-.. code-block:: bash
+.. code-block:: console
 
    systemctl status dkms-new-kernel.service
 
-Also, the systemd journal may have important information:
+The systemd journal may also have important information:
 
-.. code-block:: bash
+.. code-block:: console
 
    journalctl -xe
 
+.. CAUTION::
+   As of OpenZFS 2.0.0, the included file :file:`script/dkms.mkconf` contains a minor incompability -- it calls the command :file:`lsb_release`, which is not available on Clear    Linux by default. It is trivial to edit :file:`dkms.mkconf` and remove the singular reference to :file:`lsb_release` without any ill effects, and then execute the :file:`dkms` commands above. However, keeping the file as provided is perfectly fine, but **will result in :file:`dkms` warnings**.
+
 Next steps
 **********
-You are ready to create zpools and datasets! For more information on using ZFS, see:
+You're now ready to create zpools and datasets! For more information on using ZFS, see:
 
 * `FreeBSD Handbook chapter on ZFS`_
 * `ZFS-on-Linux issue tracker`_
