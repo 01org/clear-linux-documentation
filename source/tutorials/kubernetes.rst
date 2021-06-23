@@ -192,7 +192,7 @@ below are necessary to ensure those preflight checks pass successfully.
 
    .. code-block:: bash
 
-      sudo systemctl mask $(sed -n -e 's#^/dev/\([0-9a-z]*\).*#dev-\1.swap#p' /proc/swaps) 2>/dev/null
+      sudo systemctl mask $(sed -n -e 's#^/var/\([0-9a-z]*\).*#var-\1.swap#p' /proc/swaps) 2>/dev/null
       sudo swapoff -a
 
    .. note::
